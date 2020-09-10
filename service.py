@@ -76,9 +76,9 @@ def camera_move(camera_move_x, camera_move_y):
 	Kp0 = -1
 	Kp1 = 1
     
-	if last_move_x == camera_move_x:
+	if abs(last_move_x - camera_move_x) <= 2:
 		camera_move_x = 0
-	if last_move_y == camera_move_y:
+	if abs(last_move_y - camera_move_y) <= 2:
 		camera_move_y = 0    
         
 	last_move_x = camera_move_x
