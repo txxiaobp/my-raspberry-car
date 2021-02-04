@@ -103,12 +103,12 @@ class MPU6050:
         """
         获取当前角度
         """
-        current_time = datetime.now().microsecond
-        diff_time = (current_time - self.lastTime) / 1000.0
-        self.lastTime = current_time
+        currentTime = datetime.now().microsecond
+        diffTime = (currentTime - self.lastTime) / 1000.0
+        self.lastTime = currentTime
 
         gx, gy, gz, ax, ay, az = self.getRawData()
-        gyrox = -(gx - self.gxo) / GyroRatio * diff_time  # x轴角速度
+        gyrox = -(gx - self.gxo) / GyroRatio * diffTime  # x轴角速度
         self.agx += gyrox  # x轴角速度积分
 
         return self.agx

@@ -50,21 +50,23 @@ class ServoCamera:
         驱动单个舵机转动
         """
         channelId = self.pca9685ChannelMap[servoId]
-        absolutAngle = self.lastAngle[channelId] + newRelatedAngle
+        absolutAngle = self.lastAngle[servoId] + newRelatedAngle
 
         # 云台限位
         if (absolutAngle < self.cameraMinimum[channelId]) or (absolutAngle > self.cameraMaximum[channelId]):
             print("angle exceed threadhold")
             return
 
-        self.lastAngle[channelId] = absolutAngle
+        self.lastAngle[servoId] = absolutAngle
         self.setServoAngle(channelId, absolutAngle)
 
     def setServoAngle(self, channelId, absolutAngle):
         data = 0.5 + (absolutAngle / 180.0) * (2.5 - 0.5)
         data = int(data / 20 * 4096)
 
-        self.pwm.set_pwm(channelId, 0, int(data))
+        print(channelId, int(data))
+
+        #self.pwm.set_pwm(channelId, 0, int(data))
 
 
 

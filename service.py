@@ -11,7 +11,7 @@ def main():
 	pwm.set_pwm_freq(50)
 
 	m6050 = MPU6050()
-	motor = Motor(pwm, m6050)
+	motor = Motor(m6050)
 	camera = ServoCamera(pwm)
 	dataRecv = DataReceiver(motor, camera)
 
