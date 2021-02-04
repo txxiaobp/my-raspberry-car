@@ -23,10 +23,10 @@ pwm.set_pwm_freq(50)
 
 pwm_ENA = None
 pwm_ENB = None
+
 left_pwm = 0
 right_pwm = 0
 
-current_pwm  = 0   
 goal_direction = 0
 direction_step = 5
 
@@ -158,50 +158,9 @@ def get_angle():
 	current_time = datetime.now().microsecond  
 	diff_time = (current_time - last_time) / 1000.0
 	last_time = current_time
-  
 	gx, gy, gz, ax, ay, az = get_raw_data()  
-  
-	'''
-	accx = ax / AcceRatio # x轴加速度  
-	accy = ay / AcceRatio # y轴加速度  
-	accz = az / AcceRatio # z轴加速度  
-  
-	if accz != 0:
-		aax = math.atan(accy / accz) * (-180) / math.pi # y轴对于z轴的夹角  
-		aay = math.atan(accx / accz) * 180 / math.pi    # x轴对于z轴的夹角  
-	if accy != 0:
-		aaz = math.atan(accz / accy) * 180 / math.pi    # z轴对于y轴的夹角  
-  
-	# 对于加速度计原始数据的滑动加权滤波算法
-	aax_sum = 0;               
-	aay_sum = 0;  
-	aaz_sum = 0;  
-   
-	for i in range(1, n_sample):
-		aaxs[i-1] = aaxs[i]  
-		aax_sum += aaxs[i] * i  
-		aays[i-1] = aays[i]  
-		aay_sum += aays[i] * i 
-		aazs[i-1] = aazs[i]  
-		aaz_sum += aazs[i] * i  
-  
-	aaxs[n_sample-1] = aax  
-	aax_sum += aax * n_sample 
-	aax = (aax_sum / (11*n_sample/2.0)) * 9 / 7.0 # 角度调幅至0-90°  
-	aays[n_sample-1] = aay                        # 此处应用实验法取得合适的系数  
-	aay_sum += aay * n_sample                     # 本例系数为9/7  
-	aay = (aay_sum / (11*n_sample/2.0)) * 9 / 7.0 
-	aazs[n_sample-1] = aaz  
-	aaz_sum += aaz * n_sample 
-	aaz = (aaz_sum / (11*n_sample/2.0)) * 9 / 7.0
-	'''
-  
 	gyrox = -(gx-gxo) / GyroRatio * diff_time   # x轴角速度  
-	gyroy = -(gy-gyo) / GyroRatio * diff_time   # y轴角速度  
-	gyroz = -(gz-gzo) / GyroRatio * diff_time   # z轴角速度  
 	agx += gyrox                                # x轴角速度积分  
-	agy += gyroy                                # y轴角速度积分  
-	agz += gyroz                                # z轴角速度积分
 
 	return agx
 
@@ -265,9 +224,9 @@ def get_current_direction():
 	return sum / sampling_times
 
 def motor_thread():
-	global current_pwm
 	global goal_direction
-	global last_pwm
+	global left_pwm
+	global right_pwm
 
 	minimum_pwm = 10
 	maximum_pwm = 100
@@ -279,12 +238,10 @@ def motor_thread():
 		if abs(diff_direction) < 5:
 			diff_direction = 0
 
-		if current_pwm > 0:
-			left_pwm = current_pwm + Kp * diff_direction
-		elif current_pwm < 0:
-			left_pwm = current_pwm - Kp * diff_direction
-		else:
-			left_pwm = 0
+		if left_pwm > 0:
+			left_pwm += Kp * diff_direction
+		elif left_pwm < 0:
+			left_pwm -= Kp * diff_direction
 
 		if abs(left_pwm) <= minimum_pwm:
 			left_pwm = 0
@@ -303,12 +260,10 @@ def motor_thread():
 			IN2_status = True
 
 
-		if current_pwm > 0:
-			right_pwm = current_pwm - Kp * diff_direction
-		elif current_pwm < 0:
-			right_pwm = current_pwm + Kp * diff_direction
-		else:
-			right_pwm = 0
+		if right_pwm > 0:
+			right_pwm -= Kp * diff_direction
+		elif right_pwm < 0:
+			right_pwm += Kp * diff_direction
 
 		if abs(right_pwm) <= minimum_pwm:
 			right_pwm = 0
@@ -329,7 +284,7 @@ def motor_thread():
 		
 		left_pwm = min(100, left_pwm)
 		right_pwm = min(100, right_pwm)
-		print(current_pwm, left_pwm, right_pwm, IN1_status, IN2_status, IN3_status, IN4_status, diff_direction, goal_direction, current_direction)
+		print(left_pwm, right_pwm, IN1_status, IN2_status, IN3_status, IN4_status, diff_direction)
 		pwm_ENA.ChangeDutyCycle(left_pwm)
 		pwm_ENB.ChangeDutyCycle(right_pwm)
 		
@@ -339,62 +294,112 @@ def motor_thread():
 		GPIO.output(IN4, IN4_status)       
 
 def motor_reduced_thread():
-	global current_pwm
+	global left_pwm
+	global right_pwm
 
 	while True:
-		if current_pwm == 0:
-			continue
-		if current_pwm > 0:
-			current_pwm -= 1
-		elif current_pwm < 0:
-			current_pwm += 1
+		if left_pwm != 0:
+			left_pwm = max(abs(left_pwm) - 1, 0)
+		if right_pwm != 0:
+			right_pwm = max(abs(right_pwm) - 1, 0)
 		time.sleep(0.5)
 
-def isForward():
-	return current_pwm > 0
-
-def isBackward():
-	return current_pwm < 0
 
 def upCallBack():
-	global current_pwm
-	global goal_direction
-	if current_pwm == 0:
-		current_pwm = 15
-		goal_direction = angle_queue.get();
-	else:
-		current_pwm = min(current_pwm + 1, 100)
-	time.sleep(0.05)
-
-
-def downCallBack():
-	global current_pwm
-	if current_pwm == 0:
-		current_pwm = -15
-		goal_direction = angle_queue.get();
-	else:
-		current_pwm = max(current_pwm - 1, -100)
-	time.sleep(0.05)
-
-def leftCallBack():
-	global goal_direction
-	goal_direction -= direction_step
-	time.sleep(0.05)
-
-def rightCallBack():
-	global goal_direction
-	goal_direction += direction_step
-	time.sleep(0.05)
-	
-def haltCallBack():
-	global current_pwm
+	global left_pwm
+	global right_pwm
 	global goal_direction
 	global IN1_status
 	global IN2_status
 	global IN3_status
 	global IN4_status
 
-	current_pwm = 0
+	if left_pwm == 0 and right_pwm == 0:
+		left_pwm = 15
+		right_pwm = 15
+		goal_direction = angle_queue.get();
+
+		IN1_status = True
+		IN2_status = False
+		IN3_status = True
+		IN4_status = False
+		return
+
+	if IN1_status == True and IN2_status == False:
+		left_pwm = min(left_pwm + 1, 100)
+	elif IN1_status == False and IN2_status == True:
+		left_pwm = max(left_pwm - 1, 0)
+
+	if IN3_status == True and IN4_status == False:
+		right_pwm = min(right_pwm + 1, 100)
+	elif IN3_status == False and IN4_status == True:
+		right_pwm = max(right_pwm - 1, 0)
+
+	time.sleep(0.05)
+
+
+def downCallBack():
+	global left_pwm
+	global right_pwm
+	global goal_direction
+	global IN1_status
+	global IN2_status
+	global IN3_status
+	global IN4_status
+
+	if left_pwm == 0 and right_pwm == 0:
+		left_pwm = 15
+		right_pwm = 15
+		goal_direction = angle_queue.get();
+
+		IN1_status = False
+		IN2_status = True
+		IN3_status = False
+		IN4_status = True
+		return
+
+	if IN1_status == False and IN2_status == True:
+		left_pwm = min(left_pwm + 1, 100)
+	elif IN1_status == True and IN2_status == False:
+		left_pwm = max(left_pwm - 1, 0)
+
+	if IN3_status == False and IN4_status == True:
+		right_pwm = min(right_pwm + 1, 100)
+	elif IN3_status == True and IN4_status == False:
+		right_pwm = max(right_pwm - 1, 0)
+
+	time.sleep(0.05)
+	
+
+def leftCallBack():
+	global left_pwm
+	global goal_direction
+	left_pwm = max(0, left_pwm - 10)
+	time.sleep(0.01)
+	left_pwm = min(100, left_pwm + 10)
+	time.sleep(0.01)
+	goal_direction = angle_queue.get()
+
+def rightCallBack():
+	global right_pwm
+	global goal_direction
+	right_pwm = max(0, right_pwm - 10)
+	time.sleep(0.01)
+	right_pwm = min(100, right_pwm + 10)
+	time.sleep(0.01)
+	goal_direction = angle_queue.get()
+	
+def haltCallBack():
+	global left_pwm
+	global right_pwm
+	global goal_direction
+	global IN1_status
+	global IN2_status
+	global IN3_status
+	global IN4_status
+
+	left_pwm = 0
+	right_pwm = 0
 	goal_direction = angle_queue.get()
 	IN1_status = False
 	IN2_status = False
@@ -404,7 +409,6 @@ def haltCallBack():
 def motor_ouput_init():
 	global pwm_ENA
 	global pwm_ENB
-	global current_pwm
 
 	GPIO.setwarnings(False)
 	GPIO.setmode(GPIO.BCM)		  # 使用BCM编号方式
@@ -422,8 +426,6 @@ def motor_ouput_init():
 	pwm_ENA.start(init_dc)
 	pwm_ENB.start(init_dc)
     
-	current_pwm = 0
-
 def camera_init():
 	set_servo_angle(camera_channel[0], camera_1_init)
 	set_servo_angle(camera_channel[0], camera_2_init)
@@ -479,19 +481,14 @@ def recv_thread():
 	while True:
 		direction_str = data_queue.get().split(',')
 		if direction_str[left] == '1':
-			print('left')
 			leftCallBack()
 		if direction_str[right] == '1':
-			print('right')
 			rightCallBack()
 		if direction_str[up] == '1':
-			print('up')
 			upCallBack()
 		if direction_str[down] == '1':
-			print('down')
 			downCallBack()
 		if direction_str[halt] == '1':
-			print('halt')
 			haltCallBack()
             
 		camera_move_x = int(direction_str[mouseX])        
