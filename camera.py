@@ -1,5 +1,4 @@
 
-
 class ServoCamera:
     def __init__(self, pwm):
         self.pwm = pwm

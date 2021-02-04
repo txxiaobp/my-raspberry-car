@@ -73,7 +73,6 @@ class Motor:
         """
         电机控制线程
         根据小车速度和目标方向，计算电机的转速
-        :return:
         """
         Kp = -0.1 # p控制
 
@@ -143,10 +142,8 @@ class Motor:
     def motorReducedThread(self):
         """
         不按油门，速度下降
-        :return:
         """
         while True:
-
             newSpeed = 0
             self.speedLock.acquire()
             if self.speed > 0:

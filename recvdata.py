@@ -9,7 +9,6 @@ class DataReceiver:
         self.servo = servo
         self.dataQueue = queue.Queue()
 
-
     def start(self):
         left = 0
         right = 1
@@ -58,7 +57,6 @@ class DataReceiver:
         while True:
             recvData = socket.recv(64).decode("utf-8")
             dataArray = recvData.split(splitStr)
-            length = len(dataArray)
 
             for data in dataArray:
                 if len(data) < 1:
