@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <Button
+        android:id="@+id/Up"
+        android:layout_width="88dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="245dp"
+        android:onClick="onClick"
+        android:text="Up"
+        android:visibility="visible"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="visible" />
+
+    <Button
+        android:id="@+id/Left"
+        android:layout_width="88dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="73dp"
+        android:layout_marginLeft="73dp"
+        android:layout_marginTop="341dp"
+        android:layout_marginEnd="250dp"
+        android:layout_marginRight="250dp"
+        android:layout_marginBottom="342dp"
+        android:onClick="onClick"
+        android:text="Left"
+        android:visibility="visible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="visible" />
+
+    <Button
+        android:id="@+id/Right"
+        android:layout_width="88dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="249dp"
+        android:layout_marginLeft="249dp"
+        android:layout_marginTop="341dp"
+        android:layout_marginEnd="74dp"
+        android:layout_marginRight="74dp"
+        android:layout_marginBottom="342dp"
+        android:onClick="onClick"
+        android:text="Right"
+        android:visibility="visible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="visible" />
+
+    <Button
+        android:id="@+id/Down"
+        android:layout_width="88dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="438dp"
+        android:onClick="onClick"
+        android:text="Down"
+        android:visibility="visible"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="visible" />
+
+    <Button
+        android:id="@+id/Connect"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="117dp"
+        android:layout_marginEnd="48dp"
+        android:layout_marginRight="48dp"
+        android:onClick="onClick"
+        android:text="Connect"
+        android:visibility="visible"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="visible" />
+
+    <Button
+        android:id="@+id/Halt"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="581dp"
+        android:onClick="onClick"
+        android:text="Halt"
+        android:visibility="visible"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="visible" />
+
+    <EditText
+        android:id="@+id/IpAddress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="27dp"
+        android:layout_marginLeft="27dp"
+        android:layout_marginTop="116dp"
+        android:ems="10"
+        android:hint="ip"
+        android:inputType="text"
+        android:visibility="visible"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.074"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="visible" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
