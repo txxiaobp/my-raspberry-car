@@ -53,7 +53,7 @@ class ServoCamera:
         absolutAngle = self.lastAngle[servoId] + newRelatedAngle
 
         # 云台限位
-        if (absolutAngle < self.cameraMinimum[channelId]) or (absolutAngle > self.cameraMaximum[channelId]):
+        if (absolutAngle < self.cameraMinimum[servoId]) or (absolutAngle > self.cameraMaximum[servoId]):
             print("angle exceed threadhold")
             return
 
