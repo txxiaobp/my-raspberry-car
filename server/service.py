@@ -1,6 +1,6 @@
 import Adafruit_PCA9685
 from motor import Motor
-from camera import ServoCamera
+from servo import ServoCamera
 from recvdata import DataReceiver
 from m6050 import MPU6050
 
@@ -12,8 +12,8 @@ def main():
 
 	m6050 = MPU6050()
 	motor = Motor(m6050)
-	camera = ServoCamera(pwm)
-	dataRecv = DataReceiver(motor, camera)
+	servo = ServoCamera(pwm)
+	dataRecv = DataReceiver(motor, servo)
 
 	dataRecv.start()
 
