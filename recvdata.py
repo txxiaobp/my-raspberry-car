@@ -1,68 +1,85 @@
-def get_host_ip():
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(('8.8.8.8', 80))
-        ip = s.getsockname()[0]
-    finally:
-        s.close()
-
-    return ip
+import threading
+import socket
+import queue
 
 
-def recv_data_thread(socket):
-    start_str = '*'
-    end_str = '&'
-    split_str = '~'
-    uncomplete_str = str()
-    while True:
-        recv_data = socket.recv(64).decode("utf-8")
-        data_array = recv_data.split(split_str)
-        length = len(data_array)
-
-        for data in data_array:
-            if len(data) < 1:
-                continue
-            if data[0] != start_str:
-                tmp_str = uncomplete_str + data
-                data_queue.put(tmp_str[1:-1])
-                uncomplete_str = str()
-            elif data[-1] != end_str:
-                uncomplete_str = data
-            else:
-                data_queue.put(data[1:-1])
+class DataReceiver:
+    def __init__(self, motor, servo):
+        self.motor = motor
+        self.servo = servo
+        self.dataQueue = queue.Queue()
 
 
-def recv_thread():
-    left = 0
-    right = 1
-    up = 2
-    down = 3
-    mouseX = 4
-    mouseY = 5
-    halt = 6
+    def start(self):
+        left = 0
+        right = 1
+        up = 2
+        down = 3
+        mouseX = 4
+        mouseY = 5
+        halt = 6
 
-    ip = get_host_ip()
-    tcp_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tcp_server_socket.bind((ip, 10999))
-    tcp_server_socket.listen(120)
-    new_client_socket, client_addr = tcp_server_socket.accept()
-    threading.Thread(target=recv_data_thread, args=(new_client_socket,)).start()
+        ip = self.getHostIp()
+        tcpServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        tcpServerSocket.bind((ip, 10999))
+        tcpServerSocket.listen(120)
+        new_client_socket, client_addr = tcpServerSocket.accept()
 
-    while True:
-        direction_str = data_queue.get().split(',')
-        if direction_str[left] == '1':
-            leftCallBack()
-        if direction_str[right] == '1':
-            rightCallBack()
-        if direction_str[up] == '1':
-            upCallBack()
-        if direction_str[down] == '1':
-            downCallBack()
-        if direction_str[halt] == '1':
-            haltCallBack()
+        recvThread = threading.Thread(target=DataReceiver.receiveDataThread, args=(self,new_client_socket,))
+        recvThread.setDaemon(True)
+        recvThread.start()
 
-        camera_move_x = int(direction_str[mouseX])
-        camera_move_y = int(direction_str[mouseY])
-        camera_move(camera_move_x, camera_move_y)
+        while True:
+            directionStr = self.dataQueue.get().split(',')
+            if directionStr[left] == '1':
+                self.motor.goLeft()
+            if directionStr[right] == '1':
+                self.motor.goRight()
+            if directionStr[up] == '1':
+                self.motor.goUp()
+            if directionStr[down] == '1':
+                self.motor.goDown()
+            if directionStr[halt] == '1':
+                self.motor.stop()
 
-    server_socket.close()
+            servoMoveX = int(directionStr[mouseX])
+            servoMoveY = int(directionStr[mouseY])
+            self.servo.servoMove(servoMoveX, servoMoveY)
+
+        tcpServerSocket.close()
+
+    def receiveDataThread(self, socket):
+
+        startStr = '*'
+        endStr = '&'
+        splitStr = '~'
+        uncompleteStr = str()
+
+        while True:
+            recvData = socket.recv(64).decode("utf-8")
+            dataArray = recvData.split(splitStr)
+            length = len(dataArray)
+
+            for data in dataArray:
+                if len(data) < 1:
+                    continue
+                if data[0] != startStr:
+                    tmpStr = uncompleteStr + data
+                    self.dataQueue.put(tmpStr[1:-1])
+                    uncompleteStr = str()
+                elif data[-1] != endStr:
+                    uncompleteStr = data
+                else:
+                    self.dataQueue.put(data[1:-1])
+
+    def getHostIp(self):
+        """
+        获取本机ip地址
+        """
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(('8.8.8.8', 80))
+            ip = s.getsockname()[0]
+        finally:
+            s.close()
+        return ip

@@ -1,238 +1,216 @@
-
-pwm = Adafruit_PCA9685.PCA9685()
-pwm.set_pwm_freq(50)
-
-pwm_ENA = None
-pwm_ENB = None
-
-left_pwm = 0
-right_pwm = 0
-
-goal_direction = 0
-direction_step = 5
-
-left_pwm_lock = threading.Lock()
-right_pwm_lock = threading.Lock()
-
-pwm_step = 1
-left_pwm_step = 20
-right_pwm_step = 20
-pwm_dead_threshold = 30
-
-IN1_status = False
-IN2_status = False
-IN3_status = False
-IN4_status = False
-
-ENA = 16
-IN1 = 21
-IN2 = 20
-
-ENB = 13
-IN3 = 19
-IN4 = 26
-
-def motor_thread():
-    global goal_direction
-    global left_pwm
-    global right_pwm
-
-    minimum_pwm = 10
-    maximum_pwm = 100
-    Kp = -0.1
-
-    while True:
-        current_direction = get_current_direction()
-        diff_direction = current_direction - goal_direction
-        if abs(diff_direction) < 5:
-            diff_direction = 0
-
-        if left_pwm > 0:
-            left_pwm += Kp * diff_direction
-        elif left_pwm < 0:
-            left_pwm -= Kp * diff_direction
-
-        if abs(left_pwm) <= minimum_pwm:
-            left_pwm = 0
-            IN1_status = False
-            IN2_status = False
-        elif left_pwm > minimum_pwm:
-            if left_pwm > maximum_pwm:
-                left_pwm = maximum_pwm
-            IN1_status = True
-            IN2_status = False
-        elif left_pwm < -minimum_pwm:
-            left_pwm = abs(left_pwm)
-            if left_pwm > maximum_pwm:
-                left_pwm = maximum_pwm
-            IN1_status = False
-            IN2_status = True
-
-        if right_pwm > 0:
-            right_pwm -= Kp * diff_direction
-        elif right_pwm < 0:
-            right_pwm += Kp * diff_direction
-
-        if abs(right_pwm) <= minimum_pwm:
-            right_pwm = 0
-            IN3_status = False
-            IN4_status = False
-        elif right_pwm > minimum_pwm:
-            if right_pwm > maximum_pwm:
-                right_pwm = maximum_pwm
-            IN3_status = True
-            IN4_status = False
-        elif right_pwm < -minimum_pwm:
-            right_pwm = abs(right_pwm)
-            if right_pwm > maximum_pwm:
-                right_pwm = maximum_pwm
-            IN3_status = False
-            IN4_status = True
-
-        left_pwm = min(100, left_pwm)
-        right_pwm = min(100, right_pwm)
-        print(left_pwm, right_pwm, IN1_status, IN2_status, IN3_status, IN4_status, diff_direction)
-        pwm_ENA.ChangeDutyCycle(left_pwm)
-        pwm_ENB.ChangeDutyCycle(right_pwm)
-
-        GPIO.output(IN1, IN1_status)
-        GPIO.output(IN2, IN2_status)
-        GPIO.output(IN3, IN3_status)
-        GPIO.output(IN4, IN4_status)
+import RPi.GPIO as GPIO # 引入GPIO模块
+import threading
+import time
 
 
-def motor_reduced_thread():
-    global left_pwm
-    global right_pwm
+class Motor:
+    def __init__(self, m6050):
 
-    while True:
-        if left_pwm != 0:
-            left_pwm = max(abs(left_pwm) - 1, 0)
-        if right_pwm != 0:
-            right_pwm = max(abs(right_pwm) - 1, 0)
-        time.sleep(0.5)
+        self.pwm_ENA = None
+        self.pwm_ENB = None
+        self.pwm_step = 1
+        self.left_pwm_step = 20
+        self.right_pwm_step = 20
+        self.pwm_dead_threshold = 30
 
+        self.IN1_status = False
+        self.IN2_status = False
+        self.IN3_status = False
+        self.IN4_status = False
 
-def upCallBack():
-    global left_pwm
-    global right_pwm
-    global goal_direction
-    global IN1_status
-    global IN2_status
-    global IN3_status
-    global IN4_status
+        self.ENA = 16
+        self.IN1 = 21
+        self.IN2 = 20
 
-    if left_pwm == 0 and right_pwm == 0:
-        left_pwm = 15
-        right_pwm = 15
-        goal_direction = angle_queue.get();
+        self.ENB = 13
+        self.IN3 = 19
+        self.IN4 = 26
 
-        IN1_status = True
-        IN2_status = False
-        IN3_status = True
-        IN4_status = False
-        return
+        self.speedPWMStep = 10
+        self.speedPWMMax = 200
+        self.speedPWMMin = -200
+        self.directionStep = 5
 
-    if IN1_status == True and IN2_status == False:
-        left_pwm = min(left_pwm + 1, 100)
-    elif IN1_status == False and IN2_status == True:
-        left_pwm = max(left_pwm - 1, 0)
+        self.goalDirection = 0
+        self.speed = 0
+        self.m6050 = m6050
 
-    if IN3_status == True and IN4_status == False:
-        right_pwm = min(right_pwm + 1, 100)
-    elif IN3_status == False and IN4_status == True:
-        right_pwm = max(right_pwm - 1, 0)
+        self.directionLock = threading.Lock()
+        self.speedLock = threading.Lock()
 
-    time.sleep(0.05)
+        self.motorOuputInit()
 
+    def motorOuputInit(self):
+        '''
+        电机输出初始化
+        '''
+        GPIO.setwarnings(False)
+        GPIO.setmode(GPIO.BCM)  # 使用BCM编号方式
+        GPIO.setup(self.ENA, GPIO.OUT)
+        GPIO.setup(self.IN1, GPIO.OUT)
+        GPIO.setup(self.IN2, GPIO.OUT)
+        GPIO.setup(self.ENB, GPIO.OUT)
+        GPIO.setup(self.IN3, GPIO.OUT)
+        GPIO.setup(self.IN4, GPIO.OUT)
 
-def downCallBack():
-    global left_pwm
-    global right_pwm
-    global goal_direction
-    global IN1_status
-    global IN2_status
-    global IN3_status
-    global IN4_status
+        init_freq = 50  # initial frequency in Hz
+        self.pwm_ENA = GPIO.PWM(self.ENA, init_freq)
+        self.pwm_ENB = GPIO.PWM(self.ENB, init_freq)
+        init_dc = 0
+        self.pwm_ENA.start(init_dc)
+        self.pwm_ENB.start(init_dc)
 
-    if left_pwm == 0 and right_pwm == 0:
-        left_pwm = 15
-        right_pwm = 15
-        goal_direction = angle_queue.get();
+        controlThread = threading.Thread(target=Motor.motorControlThread, args=(self,))
+        controlThread.setDaemon(True)
+        controlThread.start()
 
-        IN1_status = False
-        IN2_status = True
-        IN3_status = False
-        IN4_status = True
-        return
-
-    if IN1_status == False and IN2_status == True:
-        left_pwm = min(left_pwm + 1, 100)
-    elif IN1_status == True and IN2_status == False:
-        left_pwm = max(left_pwm - 1, 0)
-
-    if IN3_status == False and IN4_status == True:
-        right_pwm = min(right_pwm + 1, 100)
-    elif IN3_status == True and IN4_status == False:
-        right_pwm = max(right_pwm - 1, 0)
-
-    time.sleep(0.05)
+        reduceSpeedThread = threading.Thread(target=Motor.motorReducedThread, args=(self,))
+        reduceSpeedThread.setDaemon(True)
+        reduceSpeedThread.start()
 
 
-def leftCallBack():
-    global left_pwm
-    global goal_direction
-    left_pwm = max(0, left_pwm - 10)
-    time.sleep(0.01)
-    left_pwm = min(100, left_pwm + 10)
-    time.sleep(0.01)
-    goal_direction = angle_queue.get()
+    def motorControlThread(self):
+        """
+        电机控制线程
+        根据小车速度和目标方向，计算电机的转速
+        :return:
+        """
+        Kp = -0.1 # p控制
+
+        while True:
+            # 计算实际方向和目标方向的偏差
+            currentDirection = self.m6050.getCurrDirection()
+            diffDirection = currentDirection - self.goalDirection
+
+            # 偏差小于阈值则认为偏差为0，防止小车抖动
+            directionThreshold = 5
+            if abs(diffDirection) < directionThreshold:
+                diffDirection = 0
+
+            leftPwm = self.speed
+            if leftPwm > 0:
+                leftPwm += Kp * diffDirection
+            elif leftPwm < 0:
+                leftPwm -= Kp * diffDirection
+
+            if abs(leftPwm) <= self.speedPWMMin:
+                leftPwm = 0
+                self.IN1_status = False
+                self.IN2_status = False
+            elif leftPwm > self.speedPWMMin:
+                if leftPwm > self.speedPWMMax:
+                    leftPwm = self.speedPWMMax
+                self.IN1_status = True
+                self.IN2_status = False
+            elif leftPwm < self.speedPWMMin:
+                leftPwm = abs(leftPwm)
+                if leftPwm > self.speedPWMMax:
+                    leftPwm = self.speedPWMMin
+                self.IN1_status = False
+                self.IN2_status = True
+
+            rightPwm = self.speed
+            if rightPwm > 0:
+                rightPwm -= Kp * diffDirection
+            elif rightPwm < 0:
+                rightPwm += Kp * diffDirection
+
+            if abs(rightPwm) <= self.speedPWMMin:
+                rightPwm = 0
+                self.IN3_status = False
+                self.IN4_status = False
+            elif rightPwm > self.speedPWMMin:
+                if rightPwm > self.speedPWMMax:
+                    right_pwm = self.speedPWMMax
+                self.IN3_status = True
+                self.IN4_status = False
+            elif rightPwm < -self.speedPWMMin:
+                rightPwm = abs(rightPwm)
+                if rightPwm > self.speedPWMMax:
+                    rightPwm = self.speedPWMMax
+                self.IN3_status = False
+                self.IN4_status = True
+
+            # print(left_pwm, right_pwm, IN1_status, IN2_status, IN3_status, IN4_status, diff_direction)
+            self.pwm_ENA.ChangeDutyCycle(leftPwm)
+            self.pwm_ENB.ChangeDutyCycle(rightPwm)
+
+            GPIO.output(self.IN1, self.IN1_status)
+            GPIO.output(self.IN2, self.IN2_status)
+            GPIO.output(self.IN3, self.IN3_status)
+            GPIO.output(self.IN4, self.IN4_status)
+
+    def motorReducedThread(self):
+        """
+        不按油门，速度下降
+        :return:
+        """
+        while True:
+
+            newSpeed = 0
+            self.speedLock.acquire()
+            if self.speed > 0:
+                newSpeed = self.speed - self.speedPWMStep
+                if newSpeed <= 0:
+                    newSpeed = 0
+            elif self.speed < 0:
+                newSpeed = self.speed + self.speedPWMStep
+                if newSpeed >= 0:
+                    newSpeed = 0
+            self.speedLock.release()
+
+            self.setSpeed(newSpeed)
+
+    def goUp(self):
+        """
+        前进，加速
+        """
+        self.setSpeed(self.speed + self.speedPWMStep)
+
+    def goDown(self):
+        """
+        后退，减速
+        """
+        self.setSpeed(self.speed - self.speedPWMStep)
+
+    def goLeft(self):
+        """
+        左转
+        """
+        self.setDirection(self.goalDirection - self.directionStep)
+
+    def goRight(self):
+        """
+        右转
+        """
+        self.setDirection(self.goalDirection + self.directionStep)
+
+    def stop(self):
+
+        self.setSpeed(0)
+        self.setDirection(self.m6050.getCurrDirection())
+
+    def setSpeed(self, speed):
+
+        self.speedLock.acquire()
+
+        if speed >= self.speedPWMMax:
+            self.speed = self.speedPWMMax
+        elif speed <= self.speedPWMMin:
+            self.speed = self.speedPWMMin
+        else:
+            self.speed = speed
+
+        self.speedLock.release()
+
+        time.sleep(0.05)
+
+    def setDirection(self, goalDirection):
+
+        self.directionLock.acquire()
+        self.goalDirection = goalDirection
+        self.directionLock.release()
+
+        time.sleep(0.05)
 
 
-def rightCallBack():
-    global right_pwm
-    global goal_direction
-    right_pwm = max(0, right_pwm - 10)
-    time.sleep(0.01)
-    right_pwm = min(100, right_pwm + 10)
-    time.sleep(0.01)
-    goal_direction = angle_queue.get()
-
-
-def haltCallBack():
-    global left_pwm
-    global right_pwm
-    global goal_direction
-    global IN1_status
-    global IN2_status
-    global IN3_status
-    global IN4_status
-
-    left_pwm = 0
-    right_pwm = 0
-    goal_direction = angle_queue.get()
-    IN1_status = False
-    IN2_status = False
-    IN3_status = False
-    IN4_status = False
-
-
-def motor_ouput_init():
-    global pwm_ENA
-    global pwm_ENB
-
-    GPIO.setwarnings(False)
-    GPIO.setmode(GPIO.BCM)  # 使用BCM编号方式
-    GPIO.setup(ENA, GPIO.OUT)
-    GPIO.setup(IN1, GPIO.OUT)
-    GPIO.setup(IN2, GPIO.OUT)
-    GPIO.setup(ENB, GPIO.OUT)
-    GPIO.setup(IN3, GPIO.OUT)
-    GPIO.setup(IN4, GPIO.OUT)
-
-    init_freq = 50  # initial frequency in Hz
-    pwm_ENA = GPIO.PWM(ENA, init_freq)
-    pwm_ENB = GPIO.PWM(ENB, init_freq)
-    init_dc = 0
-    pwm_ENA.start(init_dc)
-    pwm_ENB.start(init_dc)
